@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: url-shortener-api
+    static_configs:
+      - targets: ["api:8000"]
+  - job_name: url-shortener-worker
+    # Docker DNS returns one A record per replica, so `--scale worker=N` gets
+    # N scrape targets (a static "worker:9100" hit one replica at random)
+    dns_sd_configs:
+      - names: ["worker"]
+        type: A
+        port: 9100
+        refresh_interval: 15s
