@@ -1,6 +1,6 @@
-.PHONY: up down logs migrate seed seed-load test itest load rollup ps clean
+.PHONY: up down logs migrate seed seed-load test itest load rollup ps clean web
 
-up:            ## build + start the full stack (api, worker, postgres, redis, prometheus, grafana)
+up:            ## build + start the full stack (web, api, worker, postgres, redis, prometheus, grafana)
 	docker compose up -d --build
 
 down:
@@ -37,3 +37,6 @@ load:          ## dockerized k6 against the host stack (run `make seed-load` fir
 
 rollup:        ## one-shot daily rollup + ledger purge
 	docker compose run --rm api python -m workers.rollup_daily
+
+web:           ## run the React UI with hot reload on :5173 (needs the API on :8000)
+	cd frontend && npm install && npm run dev
