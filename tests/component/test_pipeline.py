@@ -362,6 +362,15 @@ def test_preview_shows_destination_without_counting_a_click(stack):
     assert client.get("/nope1234+").status_code == 404
 
 
+def test_preview_flags_links_that_are_not_https(stack):
+    client, *_ = stack
+    secure = client.post("/api/v1/links", json={"long_url": "https://example.com/a"}, headers=HEADERS).json()
+    plain = client.post("/api/v1/links", json={"long_url": "http://example.com/a"}, headers=HEADERS).json()
+    assert "Not secure" not in client.get(f"/{secure['short_code']}+").text
+    page = client.get(f"/{plain['short_code']}+").text
+    assert "Not secure" in page and "not encrypted" in page
+
+
 def test_bulk_create_reports_each_row(stack):
     client, *_ = stack
     client.post("/api/v1/links", json={"long_url": "https://example.com", "custom_alias": "taken"},

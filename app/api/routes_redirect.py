@@ -9,6 +9,7 @@ Cache-Control bounds the load tradeoff.
 """
 from datetime import datetime, timezone
 from html import escape
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -69,8 +70,20 @@ async def _resolve(request: Request, code: str) -> str:
 async def preview(request: Request, code: str):
     """Show where a short link goes without following it (and without counting a click)."""
     url = await _resolve(request, code)
+    parts = urlsplit(url)
+    secure = parts.scheme == "https"
+    warning = "" if secure else (
+        '<p class="warn">This link uses plain <b>http</b>: the connection to this site is not encrypted.</p>'
+    )
     return HTMLResponse(
-        PREVIEW_HTML.format(code=escape(code), url=escape(url, quote=True)),
+        PREVIEW_HTML.format(
+            code=escape(code),
+            host=escape(parts.hostname or parts.netloc),
+            url=escape(url, quote=True),
+            warning=warning,
+            badge="secure" if secure else "insecure",
+            badge_text="HTTPS" if secure else "Not secure",
+        ),
         headers={"Cache-Control": "private, max-age=90", "X-Robots-Tag": "noindex"},
     )
 
@@ -90,23 +103,57 @@ async def redirect(request: Request, background: BackgroundTasks, code: str):
 PREVIEW_HTML = """<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Link preview</title>
+<title>Where /{code} goes</title>
 <style>
-  :root {{ color-scheme: light dark; --bg:#f6f7fb; --card:#fff; --fg:#111827;
-          --muted:#6b7280; --accent:#4f46e5; }}
-  @media (prefers-color-scheme: dark) {{ :root {{ --bg:#0b0d14; --card:#151925; --fg:#e5e7eb;
-          --muted:#9ca3af; --accent:#818cf8; }} }}
-  body {{ margin:0; min-height:100vh; display:grid; place-items:center; background:var(--bg); color:var(--fg);
-         font:16px/1.5 system-ui, -apple-system, Segoe UI, sans-serif; padding:16px; box-sizing:border-box; }}
-  .card {{ background:var(--card); border-radius:16px; padding:28px; max-width:560px; width:100%;
-          box-shadow:0 10px 30px rgba(0,0,0,.08); }}
-  .label {{ color:var(--muted); font-size:13px; text-transform:uppercase; letter-spacing:.06em; }}
-  .url {{ word-break:break-all; font-family:ui-monospace, monospace; font-size:15px; margin:8px 0 24px; }}
-  a.btn {{ display:inline-block; background:var(--accent); color:#fff; text-decoration:none;
-          padding:10px 18px; border-radius:10px; font-weight:600; }}
+  /* Same Graphite tokens as the web app (frontend/src/tokens.css). */
+  :root {{ color-scheme: light dark; --app:#fbfbfa; --card:#fff; --sunken:#f3f3f1; --ink:#121212;
+          --muted:#63635f; --line:#e6e6e2; --accent:#1b55e8; --on-accent:#fff;
+          --ok:#127a43; --ok-soft:#e6f4ec; --warn:#9a5800; --warn-soft:#fdf1dc; }}
+  @media (prefers-color-scheme: dark) {{ :root {{ --app:#0e1014; --card:#15181e; --sunken:#1b1f27;
+          --ink:#e9ebef; --muted:#9aa1ad; --line:#242832; --accent:#86a8ff; --on-accent:#0e1014;
+          --ok:#4cc38a; --ok-soft:#13301f; --warn:#f0b453; --warn-soft:#33260e; }} }}
+  * {{ box-sizing:border-box; }}
+  body {{ margin:0; min-height:100vh; display:grid; place-items:center; padding:16px;
+         background:var(--app); color:var(--ink);
+         font:15px/1.55 "Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }}
+  main {{ width:min(100%, 520px); background:var(--card); border:1px solid var(--line);
+         border-radius:16px; padding:28px; display:grid; gap:18px; }}
+  .top {{ display:flex; align-items:center; justify-content:space-between; gap:12px; }}
+  .eyebrow {{ color:var(--muted); font-size:13px; }}
+  .eyebrow b {{ color:var(--ink); font-family:"IBM Plex Mono", ui-monospace, monospace; font-weight:600; }}
+  .badge {{ display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600;
+           padding:4px 10px; border-radius:999px; white-space:nowrap; }}
+  .badge.secure {{ background:var(--ok-soft); color:var(--ok); }}
+  .badge.insecure {{ background:var(--warn-soft); color:var(--warn); }}
+  .badge svg {{ width:13px; height:13px; }}
+  .dest {{ background:var(--sunken); border:1px solid var(--line); border-radius:12px; padding:16px; min-width:0; }}
+  .host {{ font-size:22px; font-weight:700; letter-spacing:-.01em; overflow-wrap:anywhere; }}
+  .full {{ margin-top:6px; color:var(--muted); font:13px/1.5 "IBM Plex Mono", ui-monospace, monospace;
+          overflow-wrap:anywhere; }}
+  .warn {{ margin:0; background:var(--warn-soft); color:var(--warn); border-radius:10px; padding:10px 12px; font-size:13px; }}
+  .hint {{ margin:0; color:var(--muted); font-size:13px; }}
+  .acts {{ display:flex; gap:8px; flex-wrap:wrap; }}
+  .btn {{ display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:10px 18px;
+         border-radius:10px; font:600 14px/1 inherit; text-decoration:none; cursor:pointer;
+         border:1px solid var(--line); background:var(--card); color:var(--ink); }}
+  .btn.primary {{ background:var(--accent); border-color:var(--accent); color:var(--on-accent); }}
+  .btn:focus-visible {{ outline:2px solid var(--accent); outline-offset:2px; }}
 </style></head>
-<body><main class="card">
-  <div class="label">/{code} goes to</div>
-  <div class="url">{url}</div>
-  <a class="btn" href="{url}" rel="noopener noreferrer">Continue</a>
+<body><main>
+  <div class="top">
+    <div class="eyebrow">Short link <b>/{code}</b> goes to</div>
+    <span class="badge {badge}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+      stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/>
+      <path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{badge_text}</span>
+  </div>
+  <div class="dest">
+    <div class="host">{host}</div>
+    <div class="full">{url}</div>
+  </div>
+  {warning}
+  <p class="hint">Check that this is the site you expect before continuing. Previews are not counted as clicks.</p>
+  <div class="acts">
+    <a class="btn primary" href="{url}" rel="noopener noreferrer">Continue to {host} →</a>
+    <button class="btn" type="button" onclick="history.length > 1 ? history.back() : window.close()">Go back</button>
+  </div>
 </main></body></html>"""
