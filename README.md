@@ -1,12 +1,17 @@
 # url-shortener
 
-A URL shortener API with per-key rate limiting, a Redis cache on the redirect path, and an
-asynchronous click-analytics pipeline that counts every click exactly once even when workers
-crash. Built with FastAPI, PostgreSQL and Redis, monitored with Prometheus and Grafana, and
-started with one command through Docker Compose.
+A URL shortener with a React web app, per-key rate limiting, a Redis cache on the redirect
+path, and an asynchronous click-analytics pipeline that counts every click exactly once even
+when workers crash. Built with FastAPI, PostgreSQL, Redis and React, monitored with Prometheus
+and Grafana, and started with one command through Docker Compose.
+
+![Link detail in the web app](docs/assets/app.png)
 
 ## Features
 
+- **Web app**: a split view with every link and its trend on the left and the selected link's
+  clicks, chart and QR code on the right; create links (or many at once) from anywhere with
+  N or Ctrl+K, with a live alias check; light and dark themes
 - **Short links** with random 8-character codes or a custom alias, plus optional expiry
 - **Fast redirects**: a cached redirect is one Redis read, no database query
 - **Link preview**: add `+` to any short link (`/aB3xK9pQ+`) to see where it goes first
@@ -20,10 +25,12 @@ started with one command through Docker Compose.
 
 ```mermaid
 flowchart LR
-    U["Browser / app"] -->|"GET /{code}"| API
+    U["Visitor"] -->|"GET /{code}"| API
     K["API client<br/>X-API-Key"] -->|"create · list · stats"| API
+    B["Browser"] --> WEB
 
     subgraph compose [docker compose]
+        WEB["React app<br/>(nginx)"] -->|"/api"| API
         API["FastAPI"]
         R[("Redis<br/>cache · rate limits<br/>clicks stream")]
         P[("PostgreSQL<br/>links · click rollups")]
@@ -63,11 +70,12 @@ More detail on each choice and its tradeoffs: [docs/decisions.md](docs/decisions
 Requires Docker. Python 3.11+ is only needed to run the tests outside Docker.
 
 ```bash
-make up      # api, workers, postgres, redis, prometheus, grafana
+make up      # web app, api, workers, postgres, redis, prometheus, grafana
 make seed    # creates a demo API key (printed once) and 20 sample links
 ```
 
-Then try it with the printed key:
+Open http://localhost:8080, go to **Settings** and paste the printed key. Or use the API
+directly:
 
 ```bash
 export KEY=<printed key>
@@ -86,9 +94,43 @@ curl "localhost:8000/api/v1/links/demo/stats?granularity=hour" -H "X-API-Key: $K
 
 | Service | URL |
 |---|---|
+| Web app | http://localhost:8080 |
 | API + interactive docs | http://localhost:8000/docs |
 | Grafana dashboard | http://localhost:3000 |
 | Prometheus | http://localhost:9090 |
+
+## Web app
+
+The frontend lives in [`frontend/`](frontend): React, TypeScript, Vite and Tailwind CSS, styled
+from one token file described in [docs/design-system.md](docs/design-system.md). In Docker it's
+built and served by nginx, which also proxies `/api` to the backend, so there's no CORS setup.
+For development with hot reload:
+
+```bash
+make web     # http://localhost:5173, proxies /api to the API on :8000
+```
+
+| New link (N or Ctrl+K) | Dark mode |
+|---|---|
+| ![Creating a link](docs/assets/new-link.png) | ![Dark mode](docs/assets/app-dark.png) |
+
+- **Links sidebar**: search, filter by Active, Expired or Deleted, and see each link's clicks
+  over the last 24 hours with a sparkline.
+- **Link page**: copy, open or preview the link; clicks in the last 24 hours (against the day
+  before), the last 30 days and the busiest hour; an hourly or daily chart; the QR code as a PNG;
+  delete from the bin button with an inline confirmation. Expired and deleted links keep their
+  click history but drop the copy, open, preview and QR actions, since they no longer redirect.
+- **Composer**: paste a URL, optionally pick an alias (checked as you type) and an expiry. Paste
+  several lines to create them in one bulk request, with a result for each line.
+- **Settings**: the API key, stored only in the browser.
+
+| Expired link | Deleted link |
+|---|---|
+| ![An expired link keeps its click history](docs/assets/link-expired.png) | ![A deleted link keeps its click history](docs/assets/link-deleted.png) |
+
+On a phone the sidebar and the link page become two screens:
+
+<img src="docs/assets/mobile.png" alt="The app on a phone" width="300">
 
 ## API
 
@@ -125,7 +167,8 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 SEED_API_KEY=$KEY make itest
 ```
 
-CI runs lint and the unit and component tests on every push.
+CI runs lint and the unit and component tests, and type-checks and builds the frontend, on
+every push.
 
 ## Load testing
 
@@ -147,6 +190,7 @@ Watch the Grafana dashboard while it runs. Scale the analytics workers with
 ## Project layout
 
 ```
+frontend/     React web app (Vite, TypeScript, Tailwind)
 app/          FastAPI app: routes, cache, rate limiter, models, schemas, metrics
 workers/      stream consumer and daily rollup job
 migrations/   Alembic migrations
@@ -155,7 +199,7 @@ tests/        unit, component and integration tests
 load/         k6 load test
 monitoring/   Prometheus config and Grafana dashboard
 docker/       Dockerfile
-docs/         design decisions and architecture notes
+docs/         design decisions, design system and architecture notes
 ```
 
 ## Roadmap
