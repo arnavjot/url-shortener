@@ -1,5 +1,12 @@
 # url-shortener
 
+[![CI](https://github.com/arnavjot/url-shortener/actions/workflows/ci.yml/badge.svg)](https://github.com/arnavjot/url-shortener/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.11%2B-blue)
+![React](https://img.shields.io/badge/react-18-61dafb)
+![FastAPI](https://img.shields.io/badge/FastAPI-async-009688?logo=fastapi&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-cache%20%C2%B7%20Lua%20%C2%B7%20Streams-DC382D?logo=redis&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-rollups-4169E1?logo=postgresql&logoColor=white)
+
 A URL shortener with a React web app, per-key rate limiting, a Redis cache on the redirect
 path, and an asynchronous click-analytics pipeline that counts every click exactly once even
 when workers crash. Built with FastAPI, PostgreSQL, Redis and React, monitored with Prometheus
