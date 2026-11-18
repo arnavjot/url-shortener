@@ -87,15 +87,15 @@ def test_auth_required(client):
 
 
 def test_rate_limit_eventually_429(client):
-    """Demo key: capacity 60, refill 1/s -> a fast burst of 80 reads must hit 429."""
+    """Demo key: capacity 120, refill 2/s -> a fast burst of 200 reads must hit 429."""
     saw_429 = False
-    for _ in range(80):
+    for _ in range(200):
         r = client.get("/api/v1/links?limit=1", headers=HEADERS)
         if r.status_code == 429:
             saw_429 = True
             assert "Retry-After" in r.headers
             assert "X-RateLimit-Remaining" in r.headers
             break
-    assert saw_429, "burst of 80 requests never hit the rate limit"
+    assert saw_429, "burst of 200 requests never hit the rate limit"
     # be polite to subsequent tests
     asyncio.run(asyncio.sleep(2))
