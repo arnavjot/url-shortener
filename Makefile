@@ -32,8 +32,7 @@ itest:         ## integration tests against the running stack (needs SEED_API_KE
 
 load:          ## dockerized k6 against the host stack (run `make seed-load` first)
 	docker run --rm -i -v $(PWD)/load:/load -e BASE_URL=http://host.docker.internal:8000 \
-		grafana/k6 run /load/redirect_hot.js
-	# Linux without host.docker.internal: add --add-host=host.docker.internal:host-gateway
+		--add-host=host.docker.internal:host-gateway grafana/k6 run /load/redirect_hot.js
 
 rollup:        ## one-shot daily rollup + ledger purge
 	docker compose run --rm api python -m workers.rollup_daily
