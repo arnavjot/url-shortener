@@ -14,6 +14,29 @@ and Grafana, and started with one command through Docker Compose.
 
 ![Link detail in the web app](docs/assets/app.png)
 
+## Benchmark: 500 redirects/s on a 4-core laptop, zero failures
+
+![Grafana during the k6 run](docs/assets/grafana-dashboard.png)
+
+*The Grafana dashboard during the benchmark: k6 ramps to 500 req/s and holds it for 3 minutes,
+spread over 10,000 links with Zipf-skewed popularity. The cache hit ratio stays at 100%, consumer
+lag at 0, clicks are processed as fast as they arrive, and the error and dead-letter panels stay
+flat.*
+
+| Metric | Value |
+|---|---|
+| Requests completed | **113,999** |
+| Failures | **0 (0.00%)**, every response a 302 |
+| Sustained load | 500 req/s for 3 minutes (422 req/s average including the ramps) |
+| Latency (k6) | p50 **1.0 ms** · p90 1.57 ms · p95 **2.16 ms** · p99 **12.4 ms** · max 84 ms |
+| Cache hit ratio | 100% |
+| Click events lost | 0 · consumer lag 0 · dead-letter queue empty |
+
+Hardware: Lenovo IdeaPad Flex 5 (Intel i7-1165G7, 4 cores / 8 threads, 16 GB), Docker Desktop on
+WSL 2 with 8 CPUs / 7.5 GB, with k6, the API and every datastore on the same laptop. These numbers
+show how the design behaves, not production capacity. The full run, method and the problems found
+on the way to a clean run are in [benchmarks/2026-11-21](benchmarks/2026-11-21/README.md).
+
 ## Features
 
 - **Web app**: a split view with every link and its trend on the left and the selected link's
@@ -182,7 +205,13 @@ frontend, and the integration tests against the full stack started with Docker C
 ```bash
 make seed-load   # 10,000 links
 make load        # k6: ramps to 500 redirects/s with Zipf-skewed traffic
+make load-net    # the same, with k6 on the Compose network (Docker Desktop for Windows)
 ```
+
+On Docker Desktop for Windows use `make load-net`: going through `host.docker.internal` hits
+Windows port forwarding, which produced timeouts in testing. For a fair run, restart the machine,
+plug it in and close other applications; record the k6 summary, a Grafana screenshot and the
+hardware in `benchmarks/<date>/`.
 
 Watch the Grafana dashboard while it runs. Scale the analytics workers with
 `docker compose up -d --scale worker=3`.
@@ -204,6 +233,7 @@ migrations/   Alembic migrations
 scripts/      seed script
 tests/        unit, component and integration tests
 load/         k6 load test
+benchmarks/   recorded benchmark runs (k6 summary, Grafana screenshot, hardware)
 monitoring/   Prometheus config and Grafana dashboard
 docker/       Dockerfile
 docs/         design decisions, design system and architecture notes

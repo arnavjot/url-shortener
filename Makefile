@@ -34,6 +34,10 @@ load:          ## dockerized k6 against the host stack (run `make seed-load` fir
 	docker run --rm -i -v $(PWD)/load:/load -e BASE_URL=http://host.docker.internal:8000 \
 		--add-host=host.docker.internal:host-gateway grafana/k6 run /load/redirect_hot.js
 
+load-net:      ## k6 on the Compose network (use this on Docker Desktop for Windows)
+	docker run --rm -i --network url-shortener_default -v $(PWD)/load:/load -e BASE_URL=http://api:8000 \
+		grafana/k6 run --summary-trend-stats="med,p(90),p(95),p(99),max" /load/redirect_hot.js
+
 rollup:        ## one-shot daily rollup + ledger purge
 	docker compose run --rm api python -m workers.rollup_daily
 
