@@ -126,11 +126,13 @@ PREVIEW_HTML = """<!doctype html>
   .badge.secure {{ background:var(--ok-soft); color:var(--ok); }}
   .badge.insecure {{ background:var(--warn-soft); color:var(--warn); }}
   .badge svg {{ width:13px; height:13px; }}
-  .dest {{ background:var(--sunken); border:1px solid var(--line); border-radius:12px; padding:16px; min-width:0; }}
+  .dest {{ background:var(--sunken); border:1px solid var(--line); border-radius:12px;
+           padding:16px; min-width:0; }}
   .host {{ font-size:22px; font-weight:700; letter-spacing:-.01em; overflow-wrap:anywhere; }}
   .full {{ margin-top:6px; color:var(--muted); font:13px/1.5 "IBM Plex Mono", ui-monospace, monospace;
           overflow-wrap:anywhere; }}
-  .warn {{ margin:0; background:var(--warn-soft); color:var(--warn); border-radius:10px; padding:10px 12px; font-size:13px; }}
+  .warn {{ margin:0; background:var(--warn-soft); color:var(--warn); border-radius:10px;
+           padding:10px 12px; font-size:13px; }}
   .hint {{ margin:0; color:var(--muted); font-size:13px; }}
   .acts {{ display:flex; gap:8px; flex-wrap:wrap; }}
   .btn {{ display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:10px 18px;
@@ -143,7 +145,8 @@ PREVIEW_HTML = """<!doctype html>
   <div class="top">
     <div class="eyebrow">Short link <b>/{code}</b> goes to</div>
     <span class="badge {badge}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-      stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/>
+      stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="5" y="11" width="14" height="10" rx="2"/>
       <path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{badge_text}</span>
   </div>
   <div class="dest">
@@ -151,9 +154,11 @@ PREVIEW_HTML = """<!doctype html>
     <div class="full">{url}</div>
   </div>
   {warning}
-  <p class="hint">Check that this is the site you expect before continuing. Previews are not counted as clicks.</p>
+  <p class="hint">Check that this is the site you expect before continuing.
+    Previews are not counted as clicks.</p>
   <div class="acts">
     <a class="btn primary" href="{url}" rel="noopener noreferrer">Continue to {host} →</a>
-    <button class="btn" type="button" onclick="history.length > 1 ? history.back() : window.close()">Go back</button>
+    <button class="btn" type="button"
+            onclick="history.length > 1 ? history.back() : window.close()">Go back</button>
   </div>
 </main></body></html>"""

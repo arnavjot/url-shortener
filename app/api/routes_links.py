@@ -202,7 +202,8 @@ async def link_stats(
         rows = list(await buckets(ClickRollupDaily, frm, min(to, fresh_from)))
         recent: dict[datetime, int] = {}
         for b, c in await buckets(ClickRollupHourly, max(frm, fresh_from), to):
-            day = (b if b.tzinfo else b.replace(tzinfo=timezone.utc)).replace(hour=0, minute=0, second=0, microsecond=0)
+            aware = b if b.tzinfo else b.replace(tzinfo=timezone.utc)
+            day = aware.replace(hour=0, minute=0, second=0, microsecond=0)
             recent[day] = recent.get(day, 0) + c
         rows += sorted(recent.items())
     series = [StatsPoint(bucket_start=b, clicks=c) for b, c in rows]
