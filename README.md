@@ -174,8 +174,8 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 SEED_API_KEY=$KEY make itest
 ```
 
-CI runs lint and the unit and component tests, and type-checks and builds the frontend, on
-every push.
+CI runs on every push: lint and the unit and component tests, a type-check and build of the
+frontend, and the integration tests against the full stack started with Docker Compose.
 
 ## Load testing
 
