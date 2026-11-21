@@ -37,6 +37,20 @@ WSL 2 with 8 CPUs / 7.5 GB, with k6, the API and every datastore on the same lap
 show how the design behaves, not production capacity. The full run, method and the problems found
 on the way to a clean run are in [benchmarks/2026-11-21](benchmarks/2026-11-21/README.md).
 
+## Failure drills
+
+Each failure was run live against the Docker Compose stack, not only unit-tested.
+
+| Failure | What happens | How it was checked |
+|---|---|---|
+| Worker killed holding an unacked batch | Stranded clicks are reclaimed with `XAUTOCLAIM` when a worker starts; clicks sent meanwhile wait in the stream; the ledger stops double counting | Froze Postgres so the worker held a batch, `SIGKILL`ed it and sent 3,000 clicks: 3,000/3,000 counted, 0 pending, 0 in the DLQ. The save-then-crash-before-ack path is covered by a replay test |
+| Redis fully down | Redirects fall back to Postgres (302, ~0.5 s each while the Redis client times out); API reads fail open; writes fail closed (`503`); `/readyz` returns `503`; recovers without restarting the API | Stopped Redis: redirects returned **500** although Postgres was up. Added the fallback, re-ran the drill: every redirect returned 302 |
+| Postgres fully down | Cached redirects keep serving (~4 ms); clicks queue in the Redis stream; API reads and writes fail with `500` after a connect timeout; on recovery every queued click is counted exactly once, with no restarts | Stopped Postgres and sent 2,000 clicks: 2,002/2,002 counted (including 2 sent before and during the outage), 0 pending, 0 in the DLQ. Recovery took ~2.5 min |
+
+What the drills point to next: a circuit breaker so the Redis fallback doesn't wait 0.5 s per
+request, a fast `503` when Postgres is down, and reclaiming more than 100 stranded clicks per
+pass after an outage.
+
 ## Features
 
 - **Web app**: a split view with every link and its trend on the left and the selected link's
@@ -180,6 +194,9 @@ On a phone the sidebar and the link page become two screens:
 | `GET` | `/healthz`, `/readyz` | Liveness and readiness |
 
 All `/api/v1` routes need an `X-API-Key` header. Keys are stored only as SHA-256 hashes.
+Interactive OpenAPI docs are served at `/docs`:
+
+![OpenAPI docs listing every endpoint](docs/assets/api-docs.png)
 
 ## Tests
 
