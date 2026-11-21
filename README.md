@@ -85,7 +85,9 @@ scanners don't reach the database.
 
 **Rate limiting.** Each API key has a token bucket stored in Redis. Refilling and spending a
 token happen in a single Lua script, so concurrent requests can't both take the last token.
-If Redis goes down, reads are allowed and writes are rejected with a `503`.
+If Redis goes down, reads are allowed and writes are rejected with a `503`. Redirects keep
+working: they skip the cache and read the link from Postgres. That makes every redirect a
+database read, and the per-IP limit on cache misses can't run until Redis is back.
 
 **Analytics.** Click events go into a Redis Stream. Workers in a consumer group read batches,
 record each event ID in a `processed_events` table and add the clicks to hourly rollups in the
@@ -241,6 +243,5 @@ docs/         design decisions, design system and architecture notes
 
 ## Roadmap
 
-- Fallback to Postgres when Redis is down
 - Keyset pagination for the links list
 - Probabilistic early cache refresh

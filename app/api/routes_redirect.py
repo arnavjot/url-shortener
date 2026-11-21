@@ -33,7 +33,14 @@ async def _resolve(request: Request, code: str) -> str:
     cache = app.state.link_cache
     settings = app.state.settings
 
-    url, negative = await cache.lookup(code)
+    try:
+        url, negative = await cache.lookup(code)
+    except RedisError:
+        # Redis down: serve straight from PostgreSQL instead of failing the redirect.
+        # Every redirect is then a DB point-read and the per-IP miss limiter (also
+        # Redis) can't run, so this trades scan protection for availability.
+        CACHE_OPS.labels(result="unavailable").inc()
+        return await _from_db(app, code, cache=None)
     if negative:  # checked first: wins over a stale positive entry (see LinkCache.lookup)
         CACHE_OPS.labels(result="negative").inc()
         raise HTTPException(status_code=404)
@@ -54,14 +61,28 @@ async def _resolve(request: Request, code: str) -> str:
         d = None  # fail open: redirects are reads (same policy as api/deps.py)
     if d is not None and not d.allowed:
         raise HTTPException(status_code=429, headers={"Retry-After": str(d.retry_after_s)})
+    return await _from_db(app, code, cache=cache)
+
+
+async def _from_db(app, code: str, cache) -> str:
+    """One point-read on the unique short_code index. With a cache, fill it
+    (positive or negative); a cache write that fails (Redis went away between
+    the lookup and here) is skipped rather than failing the redirect."""
     async with app.state.sessionmaker() as session:
         row = (
             await session.execute(select(Link).where(Link.short_code == code))
         ).scalar_one_or_none()
-    if row is None or not row.is_redirectable(datetime.now(timezone.utc)):
-        await cache.set_negative_if_uncached(code)
+    found = row is not None and row.is_redirectable(datetime.now(timezone.utc))
+    if cache is not None:
+        try:
+            if found:
+                await cache.set_url(code, row.long_url, expires_at=row.expires_at)
+            else:
+                await cache.set_negative_if_uncached(code)
+        except RedisError:
+            pass
+    if not found:
         raise HTTPException(status_code=404)
-    await cache.set_url(code, row.long_url, expires_at=row.expires_at)
     return row.long_url
 
 

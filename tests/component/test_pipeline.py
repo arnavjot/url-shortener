@@ -300,6 +300,29 @@ def test_create_beats_racing_negative_cache_write(stack):
     assert client.get(f"/{code}", follow_redirects=False).status_code == 302
 
 
+def test_redirect_falls_back_to_postgres_when_redis_is_down(stack, monkeypatch):
+    """Found by a live drill: with Redis stopped, redirects returned 500 even
+    though PostgreSQL was up. They must keep working from the DB instead."""
+    from redis.exceptions import ConnectionError as RedisConnectionError
+
+    client, _, _, _, _ = stack
+    code = client.post("/api/v1/links", json={"long_url": "https://example.com/up"}, headers=HEADERS).json()[
+        "short_code"
+    ]
+    cache = client.app.state.link_cache
+
+    async def redis_down(*_args, **_kwargs):
+        raise RedisConnectionError("Connection closed by server.")
+
+    for method in ("lookup", "set_url", "set_negative_if_uncached"):
+        monkeypatch.setattr(cache, method, redis_down)
+
+    r = client.get(f"/{code}", follow_redirects=False)
+    assert r.status_code == 302 and r.headers["location"] == "https://example.com/up"
+    assert client.get(f"/{code}+").status_code == 200        # the preview resolves the same way
+    assert client.get("/nope1234", follow_redirects=False).status_code == 404  # unknown codes still 404
+
+
 def test_stats_rejects_naive_datetimes(stack):
     client, _, _, _, _ = stack
     code = client.post("/api/v1/links", json={"long_url": "https://example.com/s"}, headers=HEADERS).json()[

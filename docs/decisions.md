@@ -52,7 +52,10 @@ Appending `+` shows the destination instead of redirecting, and doesn't count a 
 `+` is not allowed in codes or aliases, so the route can't collide with a real link.
 
 ## Known limits
-- If Redis is fully down, redirects fail; a direct-to-Postgres fallback isn't built yet.
+- If Redis is fully down, redirects fall back to Postgres (the Redis client gives up after
+  0.5 s, so a hung Redis falls back too). Every redirect is then a database read, and the
+  per-IP miss limiter, which lives in Redis, can't protect Postgres from scans until Redis
+  returns. Availability was chosen over scan protection for that window.
 - URL validation blocks private and loopback IP literals (including decimal/octal/hex
   spellings) but not hostnames that resolve to private IPs. The service never fetches
   target URLs itself, which removes most of the risk.

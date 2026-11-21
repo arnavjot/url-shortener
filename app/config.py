@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     # instead of erroring when all connections are checked out
     redis_max_connections: int = 200
     redis_pool_timeout_s: float = 2.0
+    # Fail fast on an unreachable or hung Redis, so redirects fall back to
+    # PostgreSQL in well under a second instead of hanging.
+    redis_socket_connect_timeout_s: float = 0.5
+    redis_socket_timeout_s: float = 0.5
 
     # Cache (MVP: cache-aside with TTL jitter + negative caching)
     cache_ttl_seconds: int = 86400

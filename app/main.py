@@ -29,6 +29,8 @@ def create_app() -> FastAPI:
                 settings.redis_url,
                 max_connections=settings.redis_max_connections,
                 timeout=settings.redis_pool_timeout_s,
+                socket_connect_timeout=settings.redis_socket_connect_timeout_s,
+                socket_timeout=settings.redis_socket_timeout_s,
                 decode_responses=True,
             )
         )

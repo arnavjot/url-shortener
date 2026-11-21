@@ -10,7 +10,8 @@ REQUEST_LATENCY = Histogram(
     ["route", "method", "status"],
     buckets=[0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0],
 )
-CACHE_OPS = Counter("shortener_cache_ops_total", "Link cache lookups", ["result"])  # hit|miss|negative
+# result: hit | miss | negative | unavailable (Redis down: served from Postgres)
+CACHE_OPS = Counter("shortener_cache_ops_total", "Link cache lookups", ["result"])
 RATE_LIMIT_DECISIONS = Counter("shortener_rate_limit_decisions_total", "Token bucket decisions", ["allowed"])
 CLICKS_PUBLISHED = Counter("shortener_clicks_published_total", "Click events published to the stream")
 CLICKS_DROPPED = Counter("shortener_clicks_dropped_total", "Click events dropped (Redis unavailable)")
